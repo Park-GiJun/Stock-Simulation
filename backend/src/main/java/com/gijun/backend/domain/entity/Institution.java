@@ -44,4 +44,12 @@ public class Institution extends BaseEntity {
         this.totalAsset = totalAsset;
         this.cashBalance = cashBalance;
     }
+
+    public void updateCashBalance(BigDecimal newCash) {
+        this.cashBalance = newCash;
+    }
+
+    public void updateTotalAsset(BigDecimal newTotalAsset) {
+        this.totalAsset = newTotalAsset;
+    }
 }

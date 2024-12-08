@@ -40,4 +40,9 @@ public class InstitutionHolding extends BaseEntity {
         this.quantity = quantity;
         this.averagePrice = averagePrice;
     }
+
+    public void updateQuantityAndPrice(int newQuantity, BigDecimal newAveragePrice) {
+        this.quantity = newQuantity;
+        this.averagePrice = newAveragePrice;
+    }
 }
