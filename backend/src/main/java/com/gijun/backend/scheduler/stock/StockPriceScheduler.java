@@ -23,10 +23,10 @@ public class StockPriceScheduler {
         this.clock = clock;
     }
 
-    @Scheduled(cron = "*/30 * 9-15 * * MON-SUN") // 평일 9시-15시 사이 30초마다 실행
+    @Scheduled(cron = "*/30 * 9-23 * * MON-SUN") // 평일 9시-23시 사이 2분마다 실행
     public void executeStockPriceUpdate() {
         LocalTime currentTime = LocalDateTime.now(clock).toLocalTime();
-        if (currentTime.isBefore(LocalTime.of(9, 0)) || currentTime.isAfter(LocalTime.of(15, 30))) {
+        if (currentTime.isBefore(LocalTime.of(9, 0)) || currentTime.isAfter(LocalTime.of(23, 30))) {
             return;
         }
 

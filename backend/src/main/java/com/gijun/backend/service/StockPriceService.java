@@ -1,9 +1,13 @@
 package com.gijun.backend.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gijun.backend.domain.entity.Stock;
+import com.gijun.backend.domain.dto.websocket.StockPriceMessage;
 import com.gijun.backend.repository.StockRepository;
+import com.gijun.backend.repository.StockDataRedisRepository;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,17 +22,32 @@ import java.util.Random;
 public class StockPriceService {
 
     private final StockRepository stockRepository;
+    private final StockDataRedisRepository redisRepository;
+    private final KafkaTemplate<String, String> kafkaTemplate;
+    private final StockWebSocketService webSocketService;
     private final Random random = new Random();
 
-    public StockPriceService(StockRepository stockRepository) {
+    private static final String KAFKA_TOPIC = "stock-price-updates";
+
+    public StockPriceService(
+            StockRepository stockRepository,
+            StockDataRedisRepository redisRepository,
+            KafkaTemplate<String, String> kafkaTemplate,
+            StockWebSocketService webSocketService) {
         this.stockRepository = stockRepository;
+        this.redisRepository = redisRepository;
+        this.kafkaTemplate = kafkaTemplate;
+        this.webSocketService = webSocketService;
     }
 
     public void updateAllStockPrices() {
+        log.debug("Updating all stock prices");
+
         List<Stock> stocks = stockRepository.findAllByIsTrading(true);
 
         for (Stock stock : stocks) {
             try {
+                log.debug("Updating price for stock: {}", stock.getStockCode());
                 updateStockPrice(stock);
             } catch (Exception e) {
                 log.error("Error updating price for stock {}: {}", stock.getStockCode(), e.getMessage());
@@ -36,40 +55,59 @@ public class StockPriceService {
         }
     }
 
+
     private void updateStockPrice(Stock stock) {
-        // 기준가 대비 변동폭 제한 (일일 상/하한가 ±30%)
+        // 이전 가격 저장
+        BigDecimal previousPrice = stock.getCurrentPrice();
+
+        // 기존 가격 업데이트 로직
         BigDecimal maxPrice = stock.getBasePrice().multiply(BigDecimal.valueOf(1.3));
         BigDecimal minPrice = stock.getBasePrice().multiply(BigDecimal.valueOf(0.7));
 
-        // 현재가 기준 변동폭 (최대 ±2%)
-        double changeRate = (random.nextDouble() * 4 - 2) / 100; // -2% ~ +2%
+        double changeRate = (random.nextDouble() * 4 - 2) / 100;
 
-        // 추세 반영 (현재가가 기준가보다 높으면 상승확률 증가, 낮으면 하락확률 증가)
         if (stock.getCurrentPrice().compareTo(stock.getBasePrice()) > 0) {
-            changeRate = adjustForTrend(changeRate, -0.3); // 하락 쪽으로 약간 치우치게
+            changeRate = adjustForTrend(changeRate, -0.3);
         } else if (stock.getCurrentPrice().compareTo(stock.getBasePrice()) < 0) {
-            changeRate = adjustForTrend(changeRate, 0.3); // 상승 쪽으로 약간 치우치게
+            changeRate = adjustForTrend(changeRate, 0.3);
         }
 
-        // 새로운 가격 계산
         BigDecimal currentPrice = stock.getCurrentPrice();
         BigDecimal priceChange = currentPrice.multiply(BigDecimal.valueOf(changeRate));
         BigDecimal newPrice = currentPrice.add(priceChange);
-
-        // 가격 범위 제한
         newPrice = newPrice.max(minPrice).min(maxPrice);
-
-        // 호가단위로 조정
         newPrice = adjustToTickSize(newPrice);
 
-        // 거래량 생성
         int volumeChange = generateVolumeChange(stock, Math.abs(changeRate));
 
-        // 가격 업데이트
+        // DB 업데이트
         stock.updatePrice(newPrice, volumeChange);
         stockRepository.save(stock);
 
-        log.info("Updated stock price - Code: {}, Price: {}, Volume: {}",
+        // StockPriceMessage 생성
+        StockPriceMessage priceMessage = StockPriceMessage.builder()
+                .stockCode(stock.getStockCode())
+                .companyName(stock.getCompanyName())
+                .currentPrice(newPrice)
+                .previousPrice(previousPrice)
+                .volume(Long.valueOf(stock.getDailyVolume()))
+                .timestamp(LocalDateTime.now().toString())
+                .build();
+
+        // Redis에 저장
+        redisRepository.saveStockPrice(priceMessage);
+
+        // Kafka로 메시지 전송
+        try {
+            kafkaTemplate.send(KAFKA_TOPIC, stock.getStockCode(), toJson(priceMessage));
+        } catch (Exception e) {
+            log.error("Failed to send message to Kafka for stock {}: {}", stock.getStockCode(), e.getMessage());
+        }
+
+        // WebSocket으로 실시간 전송
+//        webSocketService.sendStockUpdate(priceMessage);
+
+        log.debug("Updated stock price - Code: {}, Price: {}, Volume: {}",
                 stock.getStockCode(), newPrice, volumeChange);
     }
 
@@ -78,7 +116,7 @@ public class StockPriceService {
     }
 
     private BigDecimal adjustToTickSize(BigDecimal price) {
-        // 호가단위 적용
+        // 기존 코드 유지
         long tickSize;
         if (price.compareTo(BigDecimal.valueOf(2000)) < 0) {
             tickSize = 1;
@@ -101,28 +139,23 @@ public class StockPriceService {
     }
 
     private int generateVolumeChange(Stock stock, double priceChangeRate) {
-        // 기본 거래량 범위 설정
-        int baseVolume = random.nextInt(1000) + 100; // 기본 100~1100주
+        // 기존 코드 유지
+        int baseVolume = random.nextInt(1000) + 100;
+        double volumeMultiplier = 1 + (priceChangeRate * 50);
 
-        // 가격 변동이 클수록 거래량 증가
-        double volumeMultiplier = 1 + (priceChangeRate * 50); // 가격변동 1%당 거래량 50% 증가
-
-        // 추가 거래량 생성 (거래량 스파이크 발생 가능)
-        if (random.nextDouble() < 0.1) { // 10% 확률로 거래량 스파이크
-            volumeMultiplier *= (random.nextDouble() * 3 + 2); // 2~5배 거래량 스파이크
+        if (random.nextDouble() < 0.1) {
+            volumeMultiplier *= (random.nextDouble() * 3 + 2);
         }
 
         return (int) (baseVolume * volumeMultiplier);
     }
 
-    @Scheduled(cron = "0 0 9 * * MON-FRI") // 평일 아침 9시에 실행
-    @Transactional
-    public void resetDailyPrices() {
-        List<Stock> stocks = stockRepository.findAll();
-        for (Stock stock : stocks) {
-            stock.resetDaily();
-            stockRepository.save(stock);
+    // JSON 변환 유틸리티 메서드
+    private String toJson(Object object) {
+        try {
+            return new ObjectMapper().writeValueAsString(object);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Failed to convert object to JSON", e);
         }
-        log.info("Reset daily stock prices at {}", LocalDateTime.now());
     }
 }

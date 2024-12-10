@@ -21,10 +21,10 @@ public class InstitutionTradingScheduler {
     private final Clock clock;
 
 
-    @Scheduled(cron = "0 */1 9-15 * * MON-SUN") // 평일 9시-15시 사이 1분마다 실행
+    @Scheduled(cron = "*/30 * 9-23 * * MON-SUN") // 평일 9시-23시 사이 2분마다 실행
     public void executeInstitutionTrading() {
         LocalTime currentTime = LocalDateTime.now(clock).toLocalTime();
-        if (currentTime.isBefore(LocalTime.of(9, 0)) || currentTime.isAfter(LocalTime.of(15, 30))) {
+        if (currentTime.isBefore(LocalTime.of(9, 0)) || currentTime.isAfter(LocalTime.of(23, 30))) {
             return;
         }
 

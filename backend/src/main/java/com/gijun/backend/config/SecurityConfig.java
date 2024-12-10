@@ -52,6 +52,10 @@ public class SecurityConfig {
         log.info("Configuring authorization rules");
         http.authorizeHttpRequests(auth -> auth
                 .requestMatchers(
+                        "/ws/**",
+                        "/ws",
+                        "/topic/**",
+                        "/app/**",
                         "/v3/api-docs/**",
                         "/swagger-ui/**",
                         "/swagger-ui.html",
@@ -72,6 +76,7 @@ public class SecurityConfig {
         return http.build();
     }
 
+
     @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter() {
         return new JwtAuthenticationFilter(jwtTokenProvider);
@@ -79,19 +84,18 @@ public class SecurityConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-        log.info("Creating CORS configuration");
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("*"));
+        configuration.setAllowedOriginPatterns(Arrays.asList("http://localhost:8080", "https://olm.life", "http://15.165.163.233:9832"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type"));
-        configuration.setExposedHeaders(List.of("Authorization"));
-        configuration.setAllowCredentials(false);
-        configuration.setMaxAge(3600L);
+        configuration.setAllowedHeaders(Arrays.asList("*"));
+        configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
+
+
 
     @Bean
     public PasswordEncoder passwordEncoder() {

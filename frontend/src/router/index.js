@@ -3,6 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import Login from '../views/Login.vue';
 import Dashboard from '../views/Dashboard.vue';
 import Signup from '../views/Signup.vue';
+import StockView from '../views/StockViews.vue';
 
 const routes = [
     {
@@ -25,6 +26,12 @@ const routes = [
         path: '/dashboard',
         name: 'Dashboard',
         component: Dashboard,
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/stockView',
+        name: 'StockView',
+        component: StockView,
         meta: { requiresAuth: true }
     }
 ];

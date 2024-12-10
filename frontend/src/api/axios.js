@@ -3,7 +3,8 @@ import axios from 'axios';
 import router from '../router';
 
 const api = axios.create({
-    baseURL: 'http://localhost:9832/api',
+    // baseURL: 'http://localhost:9832/api',
+    baseURL: 'http://15.165.163.233:9832/api',
     timeout: 10000,
     headers: {
         'Content-Type': 'application/json',
