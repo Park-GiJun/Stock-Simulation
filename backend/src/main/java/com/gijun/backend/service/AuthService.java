@@ -94,6 +94,7 @@ public class AuthService {
                     .password(passwordEncoder.encode(request.getPassword()))
                     .username(request.getUsername())
                     .email(request.getEmail())
+                    .role("ROLE_USER")
                     .createdAt(LocalDateTime.now())  // Add this line
                     .build();
 

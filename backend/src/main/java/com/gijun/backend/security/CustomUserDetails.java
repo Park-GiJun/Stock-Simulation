@@ -2,12 +2,14 @@ package com.gijun.backend.security;
 
 import com.gijun.backend.domain.entity.User;
 import lombok.Getter;
+import lombok.ToString;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.stream.Collectors;
 
 @Getter
 public class CustomUserDetails implements UserDetails {
@@ -20,7 +22,7 @@ public class CustomUserDetails implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"));
+        return Collections.singletonList(new SimpleGrantedAuthority(user.getRole()));
     }
 
     @Override
@@ -52,4 +54,16 @@ public class CustomUserDetails implements UserDetails {
     public boolean isEnabled() {
         return true;
     }
+
+    @Override
+    public String toString() {
+        return "CustomUserDetails{" +
+                "username='" + getUsername() + '\'' +
+                ", password='[PROTECTED]'" + // 비밀번호는 보호
+                ", authorities=" + getAuthorities() +
+                ", userId=" + user.getId() +
+                ", email=" + user.getEmail() + // User 클래스의 추가 필드
+                '}';
+    }
+
 }

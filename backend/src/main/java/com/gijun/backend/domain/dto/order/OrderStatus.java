@@ -2,8 +2,9 @@ package com.gijun.backend.domain.dto.order;
 
 public enum OrderStatus {
     PENDING("대기"),
-    EXECUTED("체결"),
-    CANCELLED("취소");
+    COMPLETED("체결"),
+    CANCELLED("취소"),
+    FAILED("실패");
 
     private final String description;
 

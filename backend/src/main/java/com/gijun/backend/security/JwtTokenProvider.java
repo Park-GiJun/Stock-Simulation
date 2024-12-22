@@ -83,9 +83,17 @@ public class JwtTokenProvider {
 
     // 인증 객체 생성
     public Authentication getAuthentication(String token) {
-        UserDetails userDetails = userDetailsService.loadUserByUsername(getUsername(token));
+        String username = getUsername(token);
+        log.info("Extracted username from token: {}", username);
+
+        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+        if (userDetails instanceof CustomUserDetails customUserDetails) {
+            log.info("CustomUserDetails: {}", customUserDetails);
+        }
+
         return new UsernamePasswordAuthenticationToken(userDetails, "", userDetails.getAuthorities());
     }
+
 
     // 액세스 토큰 재발급 (리프레시 토큰을 사용할 때)
     public String refreshAccessToken(String refreshToken) {

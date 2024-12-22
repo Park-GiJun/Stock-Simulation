@@ -49,6 +49,13 @@ public class SecurityConfig {
                     session.sessionCreationPolicy(SessionCreationPolicy.STATELESS);
                 });
 
+
+        log.info("Adding JWT filter");
+        http.addFilterBefore(
+                jwtAuthenticationFilter(),
+                UsernamePasswordAuthenticationFilter.class
+        );
+
         log.info("Configuring authorization rules");
         http.authorizeHttpRequests(auth -> auth
                 .requestMatchers(
@@ -64,13 +71,8 @@ public class SecurityConfig {
                         "/auth/**",
                         "/public/**"
                 ).permitAll()
-                .anyRequest().authenticated()
-        );
-
-        log.info("Adding JWT filter");
-        http.addFilterBefore(
-                jwtAuthenticationFilter(),
-                UsernamePasswordAuthenticationFilter.class
+                .requestMatchers("/trading/**").authenticated()
+                .anyRequest().permitAll()
         );
 
         return http.build();
@@ -87,6 +89,7 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOriginPatterns(Arrays.asList("http://localhost:8080", "https://olm.life", "http://15.165.163.233:9832"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+        configuration.setExposedHeaders(List.of("Authorization"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
 

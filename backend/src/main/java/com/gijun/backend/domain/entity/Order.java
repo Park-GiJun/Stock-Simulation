@@ -3,22 +3,23 @@ package com.gijun.backend.domain.entity;
 import com.gijun.backend.domain.dto.order.OrderStatus;
 import com.gijun.backend.domain.dto.order.OrderType;
 import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-
+import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "stock_orders")
+@Table(name = "orders")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class StockOrder extends BaseEntity {
+public class Order extends BaseEntity {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user; // 추가된 필드
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_id", nullable = false)
@@ -29,38 +30,47 @@ public class StockOrder extends BaseEntity {
     private Stock stock;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private OrderType type;
+    private OrderType orderType;  // BUY, SELL
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private OrderStatus status;
+    private OrderStatus status;   // PENDING, COMPLETED, CANCELLED, FAILED
 
     @Column(nullable = false)
     private Integer quantity;
 
     @Column(nullable = false)
-    private BigDecimal price;
+    private BigDecimal orderPrice;
 
     @Column(nullable = false)
-    private LocalDateTime orderedAt;
+    private BigDecimal totalAmount;
 
     private LocalDateTime executedAt;
+    private String cancelReason;
 
     @Builder
-    public StockOrder(Account account, Stock stock, OrderType type,
-                      Integer quantity, BigDecimal price) {
+    public Order(User user, Account account, Stock stock, OrderType orderType, Integer quantity, BigDecimal orderPrice) {
+        this.user = user;
         this.account = account;
         this.stock = stock;
-        this.type = type;
-        this.status = OrderStatus.PENDING;
+        this.orderType = orderType;
         this.quantity = quantity;
-        this.price = price;
-        this.orderedAt = LocalDateTime.now();
+        this.orderPrice = orderPrice;
+        this.totalAmount = orderPrice.multiply(BigDecimal.valueOf(quantity));
+        this.status = OrderStatus.PENDING;
     }
 
-    public void execute() {
+    public void complete() {
         this.status = OrderStatus.COMPLETED;
         this.executedAt = LocalDateTime.now();
+    }
+
+    public void cancel(String reason) {
+        this.status = OrderStatus.CANCELLED;
+        this.cancelReason = reason;
+    }
+
+    public void fail(String reason) {
+        this.status = OrderStatus.FAILED;
+        this.cancelReason = reason;
     }
 }

@@ -42,6 +42,9 @@ public class Account extends BaseEntity {
     @Column(nullable = false)
     private LocalDateTime lastTradeAt;
 
+    // 정지 사유
+    private String suspendReason;
+
     @Builder
     public Account(User user, String accountNumber, BigDecimal initialBalance) {
         this.user = user;
@@ -50,6 +53,25 @@ public class Account extends BaseEntity {
         this.totalInvestment = BigDecimal.ZERO;
         this.totalValue = initialBalance;
         this.status = AccountStatus.ACTIVE;
+        this.lastTradeAt = LocalDateTime.now();
+    }
+
+    public void updateBalance(BigDecimal newBalance) {
+        this.balance = newBalance;
+        this.totalValue = newBalance.add(this.totalInvestment);
+    }
+
+    public void suspend(String reason) {
+        this.status = AccountStatus.SUSPENDED;
+        this.suspendReason = reason;
+    }
+
+    public void activate() {
+        this.status = AccountStatus.ACTIVE;
+        this.suspendReason = null;
+    }
+
+    public void updateLastTradeAt() {
         this.lastTradeAt = LocalDateTime.now();
     }
 }

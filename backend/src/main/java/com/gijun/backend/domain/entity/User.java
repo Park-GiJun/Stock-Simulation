@@ -10,6 +10,8 @@ import org.hibernate.annotations.DynamicInsert;
 import org.hibernate.annotations.DynamicUpdate;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "users")
@@ -42,12 +44,16 @@ public class User extends BaseEntity {
     @ColumnDefault("'Y'")
     private String useYn;
 
+    @Column(nullable = false, length = 20)
+    private String role; // 예: ROLE_USER, ROLE_ADMIN
+
     @Builder
-    public User(String userId, String password, String username, String email,
+    public User(String userId, String password, String username, String email, String role,
                 LocalDateTime createdAt, LocalDateTime lastLoginAt) {
         this.userId = userId;
         this.password = password;
         this.username = username;
+        this.role = role;
         this.email = email;
     }
 
@@ -71,4 +77,14 @@ public class User extends BaseEntity {
     public void enable() {
         this.useYn = "Y";
     }
+
+    @Override
+    public String toString() {
+        return "User{" +
+                "id=" + id +
+                ", username='" + username + '\'' +
+                ", email='" + email + '\'' +
+                '}';
+    }
+
 }
