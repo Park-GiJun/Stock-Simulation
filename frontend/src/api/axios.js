@@ -1,26 +1,16 @@
-// src/api/axios.js
 import axios from 'axios';
 import router from '../router';
 
-// const api = axios.create({
-//     // baseURL: 'http://localhost:9832/api',
-//     baseURL: 'http://15.165.163.233:9832/api',
-//     timeout: 10000,
-//     headers: {
-//         'Content-Type': 'application/json',
-//     }
-// });
-
 const api = axios.create({
-    // baseURL을 HTTPS로 수정
-    baseURL: 'https://olm.life/api',  // 변경: https로 접속
+    baseURL: 'https://olm.life/api',  // vite 프록시를 통해 요청이 전달됨
     timeout: 10000,
     headers: {
         'Content-Type': 'application/json',
+        'Origin': 'https://olm.life',
+        'Referer': 'https://olm.life'
     },
-    withCredentials: true  // 쿠키와 인증 정보를 포함하여 요청 보내기
+    withCredentials: false
 });
-
 
 api.interceptors.request.use(
     (config) => {
@@ -28,6 +18,9 @@ api.interceptors.request.use(
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
+        // 모든 요청에 Origin과 Referer 헤더 추가
+        config.headers.Origin = 'https://olm.life';
+        config.headers.Referer = 'https://olm.life';
         return config;
     },
     (error) => {

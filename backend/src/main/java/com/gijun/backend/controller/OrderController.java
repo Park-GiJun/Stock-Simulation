@@ -87,9 +87,9 @@ public class OrderController {
                 account,
                 request.getStockCode(),
                 OrderType.BUY,
-                user,
                 request.getQuantity(),
-                request.getPrice()
+                request.getPrice(),
+                user
         );
 
         return commonResponse.success(new OrderResponseDto(order));
@@ -122,9 +122,9 @@ public class OrderController {
                 account,
                 request.getStockCode(),
                 OrderType.SELL,
-                user,
                 request.getQuantity(),
-                request.getPrice()
+                request.getPrice(),
+                user
         );
 
         return commonResponse.success(new OrderResponseDto(order));

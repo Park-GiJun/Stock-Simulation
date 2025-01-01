@@ -31,6 +31,7 @@ public class StockPriceBroadcastScheduler {
 
     @Scheduled(fixedRate = 10000) // 0.1초마다 실행
     public void broadcastLatestStockPrices() {
+//        log.warn("Broadcasting latest stock prices...");
         try {
             List<StockPriceMessage> latestPrices = redisRepository.getAllStockPrices();
             if (latestPrices.isEmpty()) {

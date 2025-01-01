@@ -17,6 +17,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         ServletServerContainerFactoryBean container = new ServletServerContainerFactoryBean();
         container.setMaxTextMessageBufferSize(8192);
         container.setMaxBinaryMessageBufferSize(8192);
+        container.setMaxSessionIdleTimeout(600000L);
         return container;
     }
 
@@ -40,8 +41,11 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
-                .setAllowedOriginPatterns("*")  // 임시로 모든 출처 허용
-                .withSockJS();  // SockJS 지원
+                .setAllowedOrigins("https://olm.life", "http://localhost:8080")
+                .withSockJS()
+                .setWebSocketEnabled(true)
+                .setHeartbeatTime(25000)
+                .setClientLibraryUrl("https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js");
     }
 
     @Override
@@ -49,6 +53,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         registration
                 .setMessageSizeLimit(128 * 1024)
                 .setSendTimeLimit(20 * 1000)
-                .setSendBufferSizeLimit(512 * 1024);
+                .setSendBufferSizeLimit(512 * 1024)
+                .setTimeToFirstMessage(30000);
     }
 }

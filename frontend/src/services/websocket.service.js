@@ -9,7 +9,7 @@ import { ref } from 'vue';
 import SockJS from 'sockjs-client';
 import { Client } from '@stomp/stompjs';
 // const SOCKET_URL = 'http://localhost:9832/api/ws';
-const SOCKET_URL = 'http://15.165.163.233:9832/api/ws';
+const SOCKET_URL = 'https://olm.life/api/ws'; // 프록시된 WebSocket URL
 const topics = {
     ALL_STOCKS: '/topic/stocks/all',
     SINGLE_STOCK: (code) => `/topic/stocks/${code}`
@@ -30,15 +30,13 @@ class WebSocketService {
             return Promise.resolve();
         }
 
-        // SockJS가 로드될 때까지 대기
-        if (!SockJS) {
-            await new Promise(resolve => setTimeout(resolve, 100));
-        }
-
         return new Promise((resolve, reject) => {
             try {
                 this.client = new Client({
-                    webSocketFactory: () => new SockJS(SOCKET_URL),
+                    webSocketFactory: () => new SockJS(SOCKET_URL, null, {
+                        transports: ['websocket'],  // WebSocket 전송만 사용
+                        secure: true  // SSL/TLS 사용
+                    }),
                     debug: (str) => {
                         console.debug(str);
                     },

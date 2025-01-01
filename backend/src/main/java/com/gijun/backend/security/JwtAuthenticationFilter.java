@@ -39,7 +39,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             String token = resolveToken(request);
 
-            log.error("valid Check : " + jwtTokenProvider.validateToken(token));
+//            log.error("valid Check : " + jwtTokenProvider.validateToken(token));
             if (token != null && jwtTokenProvider.validateToken(token)) {
                 Authentication auth = jwtTokenProvider.getAuthentication(token);
                 if (auth.getPrincipal() instanceof CustomUserDetails userDetails) {

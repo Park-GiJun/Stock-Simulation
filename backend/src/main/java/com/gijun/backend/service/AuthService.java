@@ -1,6 +1,7 @@
 package com.gijun.backend.service;
 
 
+import com.gijun.backend.config.JwtConfig;
 import com.gijun.backend.domain.dto.auth.LoginDto;
 import com.gijun.backend.domain.dto.auth.SignupDto;
 import com.gijun.backend.domain.dto.common.commonResponse;
@@ -13,16 +14,21 @@ import com.gijun.backend.repository.UserRepository;
 import com.gijun.backend.security.JwtTokenProvider;
 import com.gijun.backend.utils.JsonUtils;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthService {
 
     private final UserRepository userRepository;
@@ -31,46 +37,73 @@ public class AuthService {
     private final KafkaTemplate<String, String> kafkaTemplate;  // String으로 변경
     private final JsonUtils jsonUtils;
     private static final String AUTH_TOPIC = "auth-topic";
+    private final RedisTemplate<String, String> redisTemplate;
+    private static final String SESSION_PREFIX = "USER_SESSION:";
+    private final JwtConfig jwtConfig;
 
     public commonResponse<LoginDto.LoginResponse> login(LoginDto.LoginRequest request, String ipAddress) {
         try {
             User user = userRepository.findByUserId(request.getUserId())
                     .orElseThrow(() -> new AuthenticationException(ErrorCode.INVALID_CREDENTIALS));
 
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new AuthenticationException(ErrorCode.INVALID_CREDENTIALS);
-        }
+            if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+                throw new AuthenticationException(ErrorCode.INVALID_CREDENTIALS);
+            }
 
-        user.updateLastLogin();
+            // 기존 세션 확인 및 삭제
+            ValueOperations<String, String> ops = redisTemplate.opsForValue();
+            String existingSession = ops.get(SESSION_PREFIX + user.getUserId());
+            if (existingSession != null) {
+                redisTemplate.delete(SESSION_PREFIX + user.getUserId()); // 기존 세션 제거
+            }
 
-        String accessToken = jwtTokenProvider.createAccessToken(user.getUserId());
-        String refreshToken = jwtTokenProvider.createRefreshToken(user.getUserId());
+            // 새로운 세션 생성
+            String accessToken = jwtTokenProvider.createAccessToken(user.getUserId());
+            String refreshToken = jwtTokenProvider.createRefreshToken(user.getUserId());
+            ops.set(SESSION_PREFIX + user.getUserId(), accessToken, jwtConfig.getExpiration(), TimeUnit.MILLISECONDS);
 
-        LoginMessage loginMessage = LoginMessage.builder()
-                .userId(user.getUserId())
-                .username(user.getUsername())
-                .ipAddress(ipAddress)
-                .loginTime(LocalDateTime.now())
-                .success(true)
-                .build();
+            user.updateLastLogin();
 
-        sendAuthMessage("LOGIN", loginMessage);
-
-        return commonResponse.success(new LoginDto.LoginResponse(accessToken, refreshToken));
-        } catch (Exception e) {
-            // 실패 시 Kafka 메시지 전송
-            LoginMessage failureMessage = LoginMessage.builder()
-                    .userId(request.getUserId())
+            LoginMessage loginMessage = LoginMessage.builder()
+                    .userId(user.getUserId())
+                    .username(user.getUsername())
                     .ipAddress(ipAddress)
                     .loginTime(LocalDateTime.now())
-                    .success(false)
-                    .errorMessage(e.getMessage())
+                    .success(true)
                     .build();
 
-            sendAuthMessage("LOGIN_FAILURE", failureMessage);
+            sendAuthMessage("LOGIN", loginMessage);
+
+            return commonResponse.success(new LoginDto.LoginResponse(accessToken, refreshToken));
+        } catch (Exception e) {
+            handleLoginFailure(request, ipAddress, e);
             throw e;
         }
     }
+
+    private void handleLoginFailure(LoginDto.LoginRequest request, String ipAddress, Exception e) {
+        // 실패 메시지 생성
+        LoginMessage failureMessage = LoginMessage.builder()
+                .userId(request.getUserId())
+                .ipAddress(ipAddress)
+                .loginTime(LocalDateTime.now())
+                .success(false)
+                .errorMessage(e.getMessage())
+                .build();
+
+        // Kafka에 메시지 전송
+        sendAuthMessage("LOGIN_FAILURE", failureMessage);
+
+        // 로깅
+        log.error("Login failed for user: {} from IP: {}. Error: {}", request.getUserId(), ipAddress, e.getMessage());
+    }
+
+    public void logout(String userId) {
+        redisTemplate.delete("USER_SESSION:" + userId); // 세션 삭제
+        redisTemplate.delete("REFRESH_TOKEN:" + userId); // Refresh Token 삭제
+    }
+
+
 
     @Transactional
     public commonResponse<SignupDto.SignupResponse> signup(SignupDto.SignupRequest request, String ipAddress) {

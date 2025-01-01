@@ -30,7 +30,7 @@ public class OrderService {
 
     @Transactional
     public Order createOrder(Account account, String stockCode, OrderType orderType,
-                             int quantity, BigDecimal price) {
+                             int quantity, BigDecimal price, User user) {
         // 계좌 상태 확인
         validateAccountStatus(account);
 
@@ -56,6 +56,7 @@ public class OrderService {
 
         // 주문 생성
         Order order = Order.builder()
+                .user(user)
                 .account(account)
                 .stock(stock)
                 .orderType(orderType)
